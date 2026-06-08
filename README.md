@@ -1,262 +1,218 @@
-# 🔬 Stress-Strain Analyzer - Mathematical/Computational Approach
+# Stress-Strain Analyzer
 
-## Overview
+A web app that automatically extracts mechanical properties from stress-strain curve data. Upload a CSV file (or pick from the built-in material library) and get Young's Modulus, Yield Strength, UTS, Toughness, and more — instantly.
 
-A web-based tool for **automatic mechanical property extraction from stress-strain curves** using **pure mathematical and computational algorithms** (NO Machine Learning).
-
-### Key Features
-
-✅ **Automatic Detection:**
-- Elastic region with R² threshold analysis
-- 0.2% offset yield point calculation
-- Ultimate Tensile Strength (UTS) identification
-- Necking region detection
-
-✅ **Smooth Curves:**
-- Savitzky-Golay filter for noise reduction
-- Preserves peaks and critical features
-- Adjustable smoothing parameters
-
-✅ **Comprehensive Analysis:**
-1. **Young's Modulus (E)** - Elastic stiffness
-2. **Yield Strength** - 0.2% offset method
-3. **Ultimate Tensile Strength (UTS)** - Maximum stress
-4. **% Elongation** - Ductility measure
-5. **Resilience** - Elastic energy absorption
-6. **Toughness** - Total energy absorption
-7. **Strain Hardening Exponent (n)** - Plastic behavior
-
-✅ **Visual Output:**
-- Color-coded regions (Elastic=Blue, Plastic=Green, Necking=Red)
-- Marked yield point and UTS
-- Shaded resilience and toughness areas
-- Comprehensive properties table
-- Region distribution pie chart
-- Key metrics bar chart
+Built for the MLL253 course at IIT Delhi.
 
 ---
 
-## Quick Start
+## What It Does
 
-### 1. **Start Backend** (Python/Flask)
+- Reads stress-strain data from a CSV file
+- Smooths noisy data using a Savitzky-Golay filter
+- Detects the elastic region and calculates **Young's Modulus**
+- Finds the **0.2% offset Yield Point** (ASTM E8 standard)
+- Identifies **Ultimate Tensile Strength (UTS)** and necking
+- Calculates **Resilience** and **Toughness** by numerical integration
+- Fits the Hollomon power law for **Strain Hardening** (σ = Kεⁿ)
+- Generates interactive Plotly charts + a static Matplotlib graph
+- Supports **up to 10 materials** simultaneously for comparison
+- Exports results as PDF report, Excel, JSON, or CSV
+
+---
+
+## Setup & Running
+
+You need **Python 3.8+** and **Node.js** installed.
+
+### Step 1 — Start the Backend
+
 ```bash
 cd backend
 pip install -r requirements.txt
 python app.py
 ```
-Backend runs on: `http://localhost:5000`
 
-### 2. **Start Frontend** (React)
+Runs on `http://localhost:5000`
+
+### Step 2 — Start the Frontend
+
 ```bash
 cd frontend
 npm install
 npm start
 ```
-Frontend runs on: `http://localhost:3000`
 
-### 3. **Upload CSV Data**
-- Format: **2 columns minimum** - `Strain`, `Stress`
-- Example:
-  ```csv
-  Strain,Stress
-  0.0001,20
-  0.0002,40
-  ...
-  ```
-- Drag & drop or click to select file
-- Click **Analyze** button
+Opens automatically at `http://localhost:3000`
+
+> Run both at the same time in two separate terminals.
 
 ---
 
-## How It Works (Mathematical Approach)
+## How to Use
 
-### Step 1: Data Smoothing
-- **Algorithm**: Savitzky-Golay filter
-- **Purpose**: Remove noise while preserving curve features
-- **Parameters**: 
-  - Window size (default: 11 points)
-  - Polynomial order (default: 3)
+### Option A — Upload your own CSV
 
-### Step 2: Elastic Region Detection
-- **Method**: Sliding window with R² threshold
-- **Algorithm**:
-  1. Fit linear regression to increasing data subsets
-  2. Calculate R² for each fit
-  3. Stop when R² drops below 0.998
-- **Output**: Young's Modulus (E) = slope of elastic region
+1. Go to the **Upload CSV** tab
+2. Drag & drop (or click to browse) your CSV file
+3. File must have at least 2 columns: `Strain` and `Stress`, with 20+ rows
+4. Adjust smoothing settings if needed (defaults work for most data)
+5. Click **Run Analysis**
 
-### Step 3: 0.2% Offset Yield Point
-- **Formula**: Offset line = E × (ε - 0.002)
-- **Method**: Find intersection of offset line with stress-strain curve
-- **Output**: Yield strength (σ_y) and yield strain (ε_y)
-
-### Step 4: Ultimate Tensile Strength (UTS)
-- **Method**: Find maximum stress value in curve
-- **Output**: UTS and corresponding strain
-
-### Step 5: % Elongation
-- **Formula**: % Elongation = (final strain / original length) × 100
-- **Output**: Ductility measure
-
-### Step 6: Resilience Calculation
-- **Formula**: Resilience = ∫₀^εʸ σ dε
-- **Method**: Trapezoidal integration under elastic curve
-- **Output**: Elastic energy absorption (MPa)
-
-### Step 7: Toughness Calculation
-- **Formula**: Toughness = ∫₀^εᶠ σ dε
-- **Method**: Trapezoidal integration under entire curve
-- **Output**: Total energy absorption (MPa)
-
-### Step 8: Strain Hardening Analysis
-- **Formula**: σ = K × εⁿ (Hollomon equation)
-- **Method**: Log-log linear regression on plastic region
-- **Output**: Strength coefficient (K) and strain hardening exponent (n)
-
----
-
-## API Documentation
-
-### Endpoint: `/api/analyze`
-**Method**: POST  
-**Content-Type**: multipart/form-data
-
-**Request Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `file` | File | *required* | CSV file with Strain, Stress columns |
-| `outputDecimalPlaces` | integer | 3 | Decimal precision for results |
-| `smoothingWindow` | integer | 11 | Savitzky-Golay window size (odd number) |
-| `smoothingOrder` | integer | 3 | Polynomial order for smoothing (2-5) |
-
-**Response (JSON):**
-```json
-{
-  "youngsModulus": 200000.0,
-  "yieldStress": 400.0,
-  "yieldStrain": 0.002,
-  "UTS": 920.0,
-  "percentElongation": 14.0,
-  "resilience": 0.4,
-  "toughness": 100.0,
-  "strainHardeningExponent": 0.25,
-  "strengthCoefficient": 1200.0,
-  "elasticDataPoints": 20,
-  "plasticDataPoints": 40,
-  "neckingDataPoints": 15,
-  "elasticR2": 0.9995,
-  "graphData": "data:image/png;base64,..."
-}
+**CSV format example:**
+```
+Strain,Stress
+0.0001,20
+0.0002,40
+0.001,200
+0.002,400
+0.01,591
+0.11,920
+...
 ```
 
----
+A sample file `sample_stress_strain.csv` is included in the project root.
 
-## Sample CSV Data
+### Option B — Use the Material Library
 
-See `sample_stress_strain.csv` for example format:
-- 60+ data points
-- Elastic region (0-0.002 strain)
-- Plastic region with strain hardening
-- Necking region (strain softening after UTS)
+1. Go to the **Material Library** tab
+2. Browse 7 real experimental datasets:
+   - DP780 Dual-Phase Steel
+   - Aluminum AA6016A and AA5086
+   - Natural Rubber NR60
+   - EPDM Rubber
+   - Neoprene Rubber
+   - Flax Fiber Bundle
+3. Click any material to analyze it instantly
 
----
+### Comparing Multiple Materials
 
-## Technologies Used
-
-### Backend
-- **Flask 3.0.0** - Web framework
-- **NumPy 1.26.2** - Numerical computations
-- **Pandas 2.1.4** - Data handling
-- **SciPy 1.11.4** - Signal processing & integration
-- **Matplotlib 3.8.2** - Graph generation
-
-### Frontend
-- **React 18.2.0** - UI framework
-- **Axios** - HTTP client
-- **react-dropzone** - File upload
+- Add up to 10 materials (mix of uploaded files and library materials)
+- An interactive overlay chart appears automatically once you add 2+
+- Use the **Cluster** button to run K-means clustering on their properties
+- Use the **Export** button to download results
 
 ---
 
-## Algorithm Advantages
+## Results Explained
 
-### Why Mathematical vs Machine Learning?
-
-✅ **Interpretability**: Every calculation is based on established mechanical engineering principles  
-✅ **Accuracy**: No training data needed, works with any material  
-✅ **Speed**: Instant analysis (no model training)  
-✅ **Transparency**: Clear mathematical formulas for each property  
-✅ **Robustness**: Handles noisy data with smoothing filters  
-✅ **Standards Compliance**: Uses ASTM standard methods (0.2% offset)
+| Property | Unit | What it means |
+|---|---|---|
+| Young's Modulus (E) | GPa | Stiffness — resistance to elastic deformation |
+| Yield Strength | MPa | Stress at which permanent deformation begins (0.2% offset) |
+| Yield Strain | — | Strain at yield point |
+| UTS | MPa | Maximum stress the material can withstand |
+| % Elongation | % | Total stretch before fracture — measures ductility |
+| Resilience | MPa | Energy absorbed elastically (area under elastic curve) |
+| Toughness | MPa | Total energy absorbed before fracture (area under full curve) |
+| Strain Hardening (n) | — | How much the material strengthens as it deforms plastically |
+| Strength Coefficient (K) | MPa | Scale factor in Hollomon equation σ = Kεⁿ |
 
 ---
 
-## Troubleshooting
+## Analysis Methods
 
-### Backend Issues
-**Error: "Insufficient data points"**
-- Ensure CSV has at least 20 rows
-- Check for missing/NaN values
+### Mathematical (default)
+Uses pure numerical algorithms — no machine learning:
+- Deviation-based elastic region detection
+- ASTM E8 standard 0.2% offset yield method
+- Trapezoidal numerical integration for resilience/toughness
+- Log-log linear regression for strain hardening
 
-**Error: "CSV must contain Strain and Stress columns"**
-- First row should be headers: `Strain,Stress`
-- Or ensure exactly 2 columns (auto-named)
+Handles both **metals** (distinct elastic-plastic regions) and **elastomers** (rubbers with >50% elongation) automatically.
 
-### Frontend Issues
-**CORS errors**
-- Backend running on port 5000?
-- Check `flask-cors` is installed
+### Machine Learning (optional)
+Uses scikit-learn linear regression:
+- Fits σ = Eε in the elastic region
+- Fits σ = Kεⁿ in log-space for the plastic region
+- Derives properties analytically from the fitted models
 
-**Graph not displaying**
-- Clear browser cache
-- Check browser console for errors
+Switch between methods in the Parameters panel.
 
 ---
 
 ## Project Structure
 
 ```
-MLL253 Project/
+MLL253-Project/
 ├── backend/
-│   ├── app.py                  # Mathematical analysis API
+│   ├── app.py                  # Flask API — all analysis logic
+│   ├── material_library.py     # 7 real experimental datasets
 │   └── requirements.txt        # Python dependencies
+│
 ├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── FileUpload.js   # CSV upload component
-│   │   │   ├── ParametersForm.js # Smoothing controls
-│   │   │   └── Results.js      # Property display
-│   │   └── App.js              # Main React app
-│   └── package.json
-├── sample_stress_strain.csv    # Test data
+│   └── src/
+│       ├── App.js              # Main React app
+│       └── components/
+│           ├── FileUpload.js       # CSV drag-and-drop upload
+│           ├── ParametersForm.js   # Smoothing & method settings
+│           ├── Results.js          # Single material results display
+│           ├── ComparisonChart.js  # Interactive multi-material Plotly chart
+│           ├── ComparisonResults.js# Side-by-side property comparison
+│           ├── MaterialSelector.js # Library browser
+│           ├── InteractiveCurve.js # Plotly stress-strain curve
+│           ├── ClusteringPanel.js  # K-means clustering + PCA
+│           ├── ExportPanel.js      # PDF / Excel / JSON / CSV export
+│           ├── SessionManager.js   # Save and load sessions
+│           ├── ThemeToggle.js      # Light / dark mode
+│           └── Tutorial.js         # First-time user guide
+│
+├── sample_stress_strain.csv    # Sample data to test with
+├── stress_strain.ipynb         # Original course assignment notebook
+├── QUICKSTART.md               # One-page quick reference
 └── README.md                   # This file
 ```
 
 ---
 
-## References
+## API Endpoints
 
-1. **ASTM E8** - Standard Test Methods for Tension Testing
-2. **0.2% Offset Method** - Yield strength determination
-3. **Savitzky-Golay Filter** - Smoothing and differentiation of data
-4. **Hollomon Equation** - σ = K·εⁿ (plastic deformation)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Check if backend is running |
+| POST | `/api/analyze` | Analyze uploaded CSV file |
+| POST | `/api/analyze-material` | Analyze a library material |
+| GET | `/api/materials` | List all library materials |
+| GET | `/api/materials/<id>` | Get raw data for one material |
+| POST | `/api/generate-comparison` | Generate comparison bar charts |
+| POST | `/api/generate-report` | Generate PDF report |
+| POST | `/api/export` | Export as Excel / JSON / CSV |
+| POST | `/api/cluster-materials` | K-means clustering + PCA |
+| POST | `/api/save-session` | Save current session to file |
+| POST | `/api/load-session` | Load a saved session |
+| POST | `/api/preview-csv` | Preview and detect CSV format |
 
 ---
 
-## License
+## Troubleshooting
 
-MIT License - Feel free to use and modify
+**"An error occurred during analysis"**
+- Make sure the backend is running (`python app.py` in the `backend/` folder)
+- Check that your CSV has at least 20 data rows
+- Open browser DevTools (F12) → Network tab to see the actual error from the server
+
+**"No module named flask"**
+- Run `pip install -r requirements.txt` inside the `backend/` folder
+
+**CORS error in browser**
+- Backend must be running on port 5000 before you start the frontend
+
+**CSV not recognized**
+- Make sure the first row is the header: `Strain,Stress`
+- Strain values should be dimensionless (e.g. 0.002, not 0.2%)
+- Stress values in MPa
+
+---
+
+## References
+
+- ASTM E8 — Standard Test Methods for Tension Testing of Metallic Materials
+- Savitzky, A. & Golay, M.J.E. (1964) — Smoothing and Differentiation of Data
+- Hollomon, J.H. (1945) — Tensile Deformation, *Trans. AIME*
+- Material datasets: Zenodo (CC-BY 4.0) and Dryad (CC0 1.0) — see citations in `material_library.py`
 
 ---
 
 ## Authors
 
-MLL253 Project Team  
-November 2025
-
----
-
-## Need Help?
-
-- Check `sample_stress_strain.csv` for correct format
-- See backend console for detailed error traces
-- Frontend errors appear in browser console (F12)
+MLL253 Project — IIT Delhi

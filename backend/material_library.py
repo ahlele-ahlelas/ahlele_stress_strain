@@ -265,40 +265,6 @@ MATERIAL_DATABASE = {
 # HELPER FUNCTIONS
 # =============================================================================
 
-def generate_stress_strain_curve(E, yield_stress, uts, elongation, n=0.2, num_points=200):
-    """
-    Generate stress-strain data based on material properties using Ramberg-Osgood model
-    Used for reference materials where no experimental data is available
-    """
-    epsilon_yield = yield_stress / E
-    strain = np.linspace(0, elongation, num_points)
-    stress = np.zeros_like(strain)
-    
-    # Elastic region
-    elastic_mask = strain <= epsilon_yield
-    stress[elastic_mask] = E * strain[elastic_mask]
-    
-    # Plastic region using power law
-    plastic_mask = strain > epsilon_yield
-    plastic_strain = strain[plastic_mask]
-    
-    K = uts / (elongation ** n)
-    
-    for i, eps in enumerate(plastic_strain):
-        progress = (eps - epsilon_yield) / (elongation - epsilon_yield)
-        
-        if progress < 0.8:
-            power_law_stress = K * (eps ** n)
-            blend = min(1, progress * 2)
-            stress[elastic_mask.sum() + i] = yield_stress + blend * (power_law_stress - yield_stress)
-            stress[elastic_mask.sum() + i] = min(stress[elastic_mask.sum() + i], uts)
-        else:
-            necking_progress = (progress - 0.8) / 0.2
-            stress[elastic_mask.sum() + i] = uts * (1 - 0.1 * necking_progress)
-    
-    return strain.tolist(), stress.tolist()
-
-
 def get_material_list():
     """Get list of all materials with basic info"""
     materials = []
@@ -367,23 +333,11 @@ def get_material_data(material_id):
     """Get stress-strain data for a specific material"""
     if material_id not in MATERIAL_DATABASE:
         return None
-    
+
     mat = MATERIAL_DATABASE[material_id]
-    
-    if mat.get("data_source") == "real":
-        # Return actual experimental data
-        strain = mat["strain_data"]
-        stress = mat["stress_data"]
-    else:
-        # Generate from Ramberg-Osgood model
-        strain, stress = generate_stress_strain_curve(
-            E=mat["E"],
-            yield_stress=mat["yield_stress"],
-            uts=mat["uts"],
-            elongation=mat["elongation"],
-            n=mat.get("n", 0.2)
-        )
-    
+    strain = mat["strain_data"]
+    stress = mat["stress_data"]
+
     return {
         "id": material_id,
         "name": mat["name"],
@@ -402,8 +356,3 @@ def get_categories():
     for data in MATERIAL_DATABASE.values():
         categories.add(data["category"])
     return sorted(list(categories))
-
-
-def get_data_sources():
-    """Get list of unique data sources"""
-    return ["real", "reference"]

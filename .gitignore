@@ -38,3 +38,16 @@ npm-debug.log*
 # Cache
 .cache/
 .eslintcache
+
+# pyenv
+.python-version
+
+# Generated reports/exports
+reports/
+*.pdf
+*.xlsx
+
+# pytest / coverage
+.pytest_cache/
+htmlcov/
+.coverage

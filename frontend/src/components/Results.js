@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import InteractiveCurve from './InteractiveCurve';
 
 const Results = ({ results, materialName, hideGraph }) => {
-  const isMathematical = results.method === 'Mathematical';
+  const isMathematical = results.method?.startsWith('Mathematical');
   const [useInteractive, setUseInteractive] = useState(true);
   
   // Check if chartData is available for interactive mode

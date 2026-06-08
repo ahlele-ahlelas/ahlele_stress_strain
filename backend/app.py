@@ -20,6 +20,7 @@ from flask_cors import CORS
 import sys
 import os
 import io
+import json
 import base64
 import math
 import matplotlib
@@ -29,7 +30,6 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter
 from scipy.integrate import trapezoid
-from scipy.interpolate import UnivariateSpline
 import scipy.stats
 from material_library import get_material_list, get_material_data, get_categories
 
@@ -185,17 +185,18 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
         
         # Now extend the elastic region by checking deviation from this initial line
         predicted_stress = initial_slope * strain + initial_intercept
-        
+
         # Calculate relative deviation at each point
         deviation = np.abs(stress - predicted_stress) / (np.abs(predicted_stress) + 1e-10)
-        
+
         # Find where deviation first exceeds threshold (3% for metals, more conservative)
         elastic_end_idx = initial_end
         deviation_threshold = 0.03  # 3% deviation marks end of elastic region
-        
+
         for i in range(initial_end, n):
             if deviation[i] > deviation_threshold:
-                elastic_end_idx = i
+                # i is the first non-elastic point; keep last elastic point (i-1)
+                elastic_end_idx = max(initial_end, i - 1)
                 break
             elastic_end_idx = i
         
@@ -228,12 +229,18 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
         return E, intercept, elastic_end_idx
     
     E, intercept, elastic_break_idx = find_elastic_region(strain_raw, stress_smooth)
-    
+
     # Ensure E is positive and reasonable
     if E <= 0:
         end_idx = max(5, len(strain_raw) // 5)
         E, intercept, _, _, _ = scipy.stats.linregress(strain_raw[:end_idx], stress_smooth[:end_idx])
         elastic_break_idx = end_idx
+
+    # Compute R² for elastic region
+    elastic_pred = E * strain_raw[:elastic_break_idx+1] + intercept
+    ss_res = np.sum((stress_smooth[:elastic_break_idx+1] - elastic_pred) ** 2)
+    ss_tot = np.sum((stress_smooth[:elastic_break_idx+1] - stress_smooth[:elastic_break_idx+1].mean()) ** 2)
+    elastic_r2 = float(1 - ss_res / ss_tot) if ss_tot > 0 else 1.0
     
     # STEP 3: FIND UTS (Maximum stress)
     uts_idx = np.argmax(stress_smooth)
@@ -269,9 +276,7 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
         
         epsilon_yield = float(strain_raw[yield_idx])
         sigma_yield = float(stress_smooth[yield_idx])
-        
-        print(f"[DEBUG] Elastomer detected: yield at strain = {epsilon_yield:.4f}, stress = {sigma_yield:.2f} MPa")
-        
+
     else:
         # METAL: 0.2% Offset Method
         offset_strain = 0.002  # 0.2%
@@ -289,19 +294,14 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
         
         # Look for where curve crosses from above to below the offset line
         diff = stress_smooth - offset_line_stress
-        
-        print(f"[DEBUG] E = {E:.1f} MPa, offset_strain = {offset_strain}")
-        print(f"[DEBUG] search_start = {search_start}, strain at search_start = {strain_raw[search_start]:.4f}")
-        
+
         for i in range(search_start, len(diff) - 1):
             if diff[i] > 0 and diff[i + 1] <= 0:
                 yield_idx = i
-                print(f"[DEBUG] Found intersection at index {yield_idx}, strain = {strain_raw[yield_idx]:.4f}")
                 break
-        
+
         # Fallback methods
         if yield_idx is None:
-            print(f"[DEBUG] No intersection found, using fallback")
             if np.all(diff[search_start:uts_idx] > 0):
                 yield_idx = elastic_break_idx
             else:
@@ -331,10 +331,10 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
     necking_start_idx = uts_idx
     
     # STEP 8: RESILIENCE (area under curve to yield)
-    resilience = float(np.trapz(stress_smooth[:yield_idx+1], strain_raw[:yield_idx+1]))
-    
+    resilience = float(trapezoid(stress_smooth[:yield_idx+1], strain_raw[:yield_idx+1]))
+
     # STEP 9: TOUGHNESS (total area)
-    toughness = float(np.trapz(stress_smooth, strain_raw))
+    toughness = float(trapezoid(stress_smooth, strain_raw))
     
     # STEP 10: STRAIN HARDENING
     n, K = 0, 0
@@ -515,6 +515,7 @@ def analyze_mathematical(df, decimal_places, smoothing_window, smoothing_order):
         'elasticDataPoints': int(elastic_break_idx),
         'plasticDataPoints': int(uts_idx - elastic_break_idx) if uts_idx > elastic_break_idx else 0,
         'neckingDataPoints': int(len(strain_raw) - uts_idx),
+        'elasticR2': round(elastic_r2, 4),
         'graphData': f'data:image/png;base64,{graph_base64}',
         # Interactive chart data (downsampled)
         'chartData': {
@@ -1308,7 +1309,7 @@ def export_data():
                 'exportDate': pd.Timestamp.now().isoformat(),
                 'materials': materials
             }
-            json_str = pd.io.json.dumps(export_data, indent=2)
+            json_str = json.dumps(export_data, indent=2)
             json_base64 = base64.b64encode(json_str.encode()).decode('utf-8')
             return jsonify({
                 'data': f'data:application/json;base64,{json_base64}',
@@ -1542,8 +1543,8 @@ def save_session():
             'parameters': data.get('parameters', {}),
             'materials': data.get('materials', [])
         }
-        
-        json_str = pd.io.json.dumps(session_data, indent=2)
+
+        json_str = json.dumps(session_data, indent=2)
         json_base64 = base64.b64encode(json_str.encode()).decode('utf-8')
         
         return jsonify({
@@ -1561,7 +1562,7 @@ def load_session():
     try:
         if 'file' in request.files:
             file = request.files['file']
-            session_data = pd.io.json.loads(file.read().decode('utf-8'))
+            session_data = json.loads(file.read().decode('utf-8'))
         else:
             session_data = request.json
         
@@ -1650,4 +1651,4 @@ def is_numeric(s):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)
